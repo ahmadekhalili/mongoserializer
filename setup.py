@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='mongoserializer',
-    version='0.9.1',
+    version='0.9.2',
     packages=['mongoserializer'],
     install_requires=["django", "djangorestframework", "pymongo"],
     extras_require={
@@ -12,7 +12,7 @@ setup(
     author_email='ahmadkhalili2020@gmail.com',
     description='One of the best practices for interacting with MongoDB in a Django REST environment',
     license='MIT',
-    long_description=open('README.md').read(),
+    long_description=open('README.md', encoding='utf-8').read(),
     long_description_content_type='text/markdown',
     url='https://github.com/ahmadekhalili/onetomultipleimage',
     include_package_data=True,

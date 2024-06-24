@@ -11,7 +11,8 @@ Whole workflow:
 
 To install mongoserializer with Jalali date support, add the ```[jalali]``` part.    
 
-&nbsp;
+
+&nbsp;   
 ## MongoSerializer
 
 **MongoSerializer** is used only in the **writing** phase to write data in MongoDB, in a nice and clean format.
@@ -166,7 +167,65 @@ suppose a `UserSerializer`, used to save user model in MongoDB and show it again
 so reading phase needs some data that in writing phase may haven't been provided. specially for complex production
 architectures that may contain several nested serializers in a serializer, this could be an actual problem. 
 
+   
 &nbsp;   
+## Fields   
+### TimestampField
+Accept a python `datatime`/`jdatetime` object or timestamp and returns an integer timestamp.
+   
+**arguments**:
+- **jalali**:
+  Set this to `True` if you work with 'jalali' datetime. The default is `False`
+  Note: timestamp of jalali or gregorian datetimes is same (timestamp is universal), so jalali argument here only uses in validation to returns jdatetime object instead of datetime.
+
+- **auto_now**:
+  Similar to 'auto_now' in django, sets a new timestamp in updating.
+
+- **auto_now_add**:
+  Similar to 'auto_now_add' in django, sets a new timestamp only in creation.
+
+   
+### DateTimeFieldMongo   
+`DateTimeFieldMongo` is subclass of `DateTimeField` from the Django Rest Framework.   
+Accepts a python datatime/jdatetime object and returns a datetime string.
+   
+**arguments**:
+- **jalali**:
+  Set this to `True` to return 'jalali' datetime. The default is `False`.
+
+- **auto_now**:
+  Similar to 'auto_now' in django, if `True`, sets a new datetime in updating.
+
+- **auto_now_add**:
+  Similar to 'auto_now_add' in django, if `True`, sets a new datetime only in creation.
+
+**Example**:
+```python
+from mongoserializer.fields import TimestampField, DateTimeFieldMongo
+from datetime import datetime
+
+class MyTime(serializers.Serializer):
+    timestamp = TimestampField()
+    datetime = DateTimeFieldMongo(jalali=True)
+
+class TestInstance:
+  timestamp = 1719208899
+  datetime = datetime.now()  # or jdatetime.now(), doesn't difference
+MyTimes({'timestamp': 1719208899, 'datetime': ''})
+
+MyTimes(TestInstance).data
+{'timestamp': 1719208899, 'datetime': '1403-04-04T09:34:43.031895'}
+
+data = {'timestamp': 1719208899, 'datetime': '2024-06-24 09:17:46'}
+serializer = MyTimes(data=data)
+serializer.is_valid()
+serializer.validated_data
+{'timestamp': datetime.datetime(2024, 6, 24, 9, 31, 39), 'datetime': jdatetime.datetime(1403, 4, 4, 9, 17, 46)}
+```
+
+   
+&nbsp;   
+&nbsp;
 ### Full example 1:  
 ```python
 from django.utils.text import slugify

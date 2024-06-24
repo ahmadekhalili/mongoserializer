@@ -49,10 +49,23 @@ class TimestampField(serializers.Field):
 
 
 class DateTimeFieldMongo(serializers.DateTimeField):
-    def __init__(self, auto_now=False, auto_now_add=False, *args, **kwargs):
+    def __init__(self, jalali=False, auto_now=False, auto_now_add=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.jalali = jalali
         self.auto_now = auto_now
         self.auto_now_add = auto_now_add
+
+    def to_representation(self, value):
+        # when take value from like instance.updated or validated_data
+        if not self.jalali:
+            return super().to_representation(value)
+        elif isinstance(value, jdatetime.datetime):
+            return super().to_representation(value)
+        elif isinstance(value, datetime.datetime):
+            j_value = jdatetime.datetime.fromgregorian(datetime=value)
+            return super().to_representation(j_value)
+        else:
+            return super().to_representation(value)
 
     def to_internal_value(self, data):
         def get_datetime():
@@ -67,7 +80,10 @@ class DateTimeFieldMongo(serializers.DateTimeField):
         elif self.auto_now and update_phase:
             return get_datetime()
         else:
-            return super().to_internal_value(data)
+            datetime = super().to_internal_value(data)
+            if self.jalali:
+                return jdatetime.datetime.fromgregorian(datetime=datetime)
+            return datetime
 
 
 class IdMongoField(serializers.Field):
