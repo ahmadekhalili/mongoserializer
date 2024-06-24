@@ -27,32 +27,28 @@ class MongoSerializer(serializers.Serializer):
         return representation
 
     def save(self, mongo_collection, **kwargs):
-        change = True if self.pk else False
-        if not change:
+        if not self.pk:   # creation phase
             return self.create(mongo_collection)
-        else:
+        else:             # updating
             return self.update(self.pk, mongo_collection)
 
     def create(self, mongo_collection):
-        current_class = self.__class__
         serialized = self.serialize_and_filter(self.validated_data)
         return save_to_mongo(collection=mongo_collection, data=serialized)
 
     def update(self, pk, mongo_collection):
         # because partial=True don't raise error when 'validated_data' doesn't provide required fields
-        current_class = self.__class__
         serialized = self.serialize_and_filter(self.validated_data)
         return save_to_mongo(mongo_collection, pk, data=serialized)
 
     def serialize_and_filter(self, validated_data):
         # serialize and next, keep only fields provided in request.data and remove unexpected others
-        current_class = self.__class__
-        serialized = self.get_serialize(validated_data)
+        serialized = self.get_serialized(validated_data)
         if self.partial:
             serialized = self._field_filtering_for_update(validated_data, serialized)
         return serialized
 
-    def get_serialize(self, validated_data):
+    def get_serialized(self, validated_data):
         # when partial=True, current_class(validated_data) doesn't raise error even doesn't provide required fields
         current_class = self.__class__
         serialized = current_class(DictToObject(validated_data), partial=self.partial).data
