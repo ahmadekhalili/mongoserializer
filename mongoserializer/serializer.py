@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.fields import empty
 from rest_framework.exceptions import ValidationError
 
 from .methods import save_to_mongo, DictToObject
@@ -19,13 +20,35 @@ class MongoSerializer(serializers.Serializer):
             for key in self.fields:
                 self.fields[key].required = False
 
-        representation = super().to_representation(instance)
-        rep2 = representation.copy()
-        if self.partial:
-            for key in rep2:    # can't change dictionary (representation) during iteration
-                if representation.get(key) is None:
-                    representation.pop(key)
-        return representation
+        if isinstance(instance, dict):
+            ret = {}
+            for field_name, field in self.get_fields().items():
+                try:
+                    value = instance[field_name]
+                    if isinstance(field, serializers.SerializerMethodField):
+                        method = getattr(self, f'get_{field_name}')
+                        if method(instance):     # prevent 'None' value came to db in SerializerMethodField fields
+                            ret[field_name] = method(instance)
+                    elif isinstance(field, serializers.BaseSerializer):   # field is a serializer like author field
+                        field.instance = value
+                        ret[field_name] = field.data
+                    else:                      # field is normal field like CharField, ...
+                        ret[field_name] = field.to_representation(value)
+                except KeyError:
+                    if field.default is not empty:         # field.default == some_value | '' | 0 | None
+                        ret[field_name] = field.default
+                    # if only one of 'allow_blank', 'allow_null' be False or required=True will not raise 'required' error
+                    elif getattr(field, 'allow_blank', False) or getattr(field, 'allow_null', False) or not getattr(field, 'required', True):
+                        continue
+                    else:
+                        raise ValidationError(f"'{field_name}' is required")
+                except:        # python default message
+                    raise
+            return ret
+
+        else:
+            return super().to_representation(instance)
+
 
     def save(self, mongo_collection, **kwargs):
         if not self.pk:   # creation phase
