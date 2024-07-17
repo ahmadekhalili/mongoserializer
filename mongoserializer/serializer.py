@@ -6,18 +6,19 @@ from .methods import save_to_mongo, DictToObject
 
 class MongoSerializer(serializers.Serializer):
 
-    def __init__(self, instance=None, pk=None, *args, **kwargs):
+    def __init__(self, instance=None, pk=None, request=None, *args, **kwargs):
         # instance and pk should not conflict in updating and retrieving like: updating: serializer(pk=1, data={..}),
         # retrieving: serializer(instance).data
         self.pk = pk
-        self.request = kwargs.pop('request', None)
-        if kwargs.get('partial'):      # in updating only provided fields should validate
-            for key in self.fields:
-                self.fields[key].required = False
+        self.request = request
         super().__init__(instance=instance, *args, **kwargs)
         self.context.update({'request': self.request})
 
     def to_representation(self, instance):
+        if self.partial:      # in updating only provided fields should validate
+            for key in self.fields:
+                self.fields[key].required = False
+
         representation = super().to_representation(instance)
         rep2 = representation.copy()
         if self.partial:
@@ -54,10 +55,10 @@ class MongoSerializer(serializers.Serializer):
         serialized = current_class(DictToObject(validated_data), partial=self.partial).data
         return serialized
 
-    def _field_filtering_for_update(self, input, output):  # input should be validated_data, output like serializer.data
+    def _field_filtering_for_update(self, validated_data, serialized):
         # keep only fields provided in validated_data and remove unexpected others (fields with defaut value,
         # None value or ...). we prevent override unexpected keys in db.
-        for key in output.copy():
-            if key not in input:
-                del output[key]
-        return output
+        for key in serialized.copy():
+            if key not in validated_data:
+                del serialized[key]
+        return serialized

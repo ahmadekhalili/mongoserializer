@@ -28,6 +28,7 @@ for **reading** phase you can [check here](#reading-phase). and conflicts using 
 
 - **request**:
   Optional. If your implementation requires 'request' (for validation, etc.), you can pass and use it like **self.request** inside your serializer.
+or use **self.context['request']** in any subclass of the class to access the original request (described in example 2 below).
 
 - **partial**:
   Required to be True in updating.
@@ -44,6 +45,29 @@ for **reading** phase you can [check here](#reading-phase). and conflicts using 
   Convert `validated_data` to a serialized format ready to save in MongoDB. You can call **serialize_and_filter()** to directly save validated data to MongoDB.
 
 **Example 1 (creation)**:
+```python
+from mongoserializer.serializer import MongoSerializer
+from mongoserializer.methods import ResponseMongo
+
+class PostMongoSerializer(MongoSerializer):
+    title = serializers.CharField(max_length=255)
+    author = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+
+mongo_db = pymongo.MongoClient("mongodb://localhost:27017/")['my_db']
+serializer = PostMongoSerializer(data={"title": 'Post1', 'author': 1}, request=request)
+if serializer.is_valid():
+    data = serializer.save(mongo_db.blog)
+    return ResponseMongo(data)
+return ResponseMongo(serializer.errors)
+```
+
+`data` returned from **.save()** and saved in MongoDB:
+```python
+{"title": "Post1", "author": 1, "_id": "669740054f96df9bbe928859"}
+```
+
+In more practical example 2 we have used `TimestampField` provided by the package and customizing 'to_internal_value' method for more real world use cases.
+**Example 2 (creation)**:
 ```python
 from mongoserializer.serializer import MongoSerializer
 from mongoserializer.fields import TimestampField
@@ -66,7 +90,7 @@ class BlogMongoSerializer(MongoSerializer):
             if self.request.user:
                 internal_value['author'] = self.request.user
             else:
-                raise ValidationError({'author': 'Please login to fill post.author'})
+                raise ValidationError({'author': 'Please login to fill blog.author'})
         elif data.get('author'):  # otherwise author's id should provide explicitly in request.data
             internal_value['author'] = get_object_or_404(User, id=data['author'])
         else:
