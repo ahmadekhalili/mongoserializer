@@ -13,7 +13,7 @@ class MongoSerializer(serializers.Serializer):
         self.pk = pk
         self.request = request
         super().__init__(instance=instance, *args, **kwargs)
-        self.context.update({'request': self.request})
+        self.context.update({'request': self.request, 'partial': self.partial})
 
     def to_representation(self, instance):
         if self.partial:      # in updating only provided fields should validate
