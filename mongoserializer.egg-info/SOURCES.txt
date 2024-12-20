@@ -1,0 +1,11 @@
+LICENSE
+README.md
+setup.py
+mongoserializer/fields.py
+mongoserializer/methods.py
+mongoserializer/serializer.py
+mongoserializer.egg-info/PKG-INFO
+mongoserializer.egg-info/SOURCES.txt
+mongoserializer.egg-info/dependency_links.txt
+mongoserializer.egg-info/requires.txt
+mongoserializer.egg-info/top_level.txt

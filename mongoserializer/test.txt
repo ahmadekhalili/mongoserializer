@@ -1,0 +1,98 @@
+from django.test import TestCase
+
+from pymongo import MongoClient
+from urllib.parse import quote_plus
+from bson.objectid import ObjectId
+from pathlib import Path
+import environ
+import os
+
+
+client = MongoClient(uri)
+
+
+class Category(models.Model):
+    name = models.CharField(max_length=60)
+    slug = models.SlugField(allow_unicode=True)
+
+    def __str__(self):
+        return self.name
+
+
+class CategorySerializer(serializers.ModelSerializer):  # accept id as data (in write phase)
+
+    class Meta:
+        model = Category
+        fields = '__all__'
+
+
+class CommentSerializer(MongoSerializer):
+    # _id field will auto created by MongoSerializer
+    name = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
+    published_date = TimestampField(jalali=True, auto_now_add=True, required=False)
+    content = serializers.CharField(validators=[MaxLengthValidator(500)])
+
+    class Meta:
+        model = mongo_db.file
+
+
+class BlogMongoSerializer(MongoSerializer):
+    title = serializers.CharField(validators=[MongoUniqueValidator(mongo_db.blog, 'title')], max_length=255)
+    slug = serializers.SlugField(required=False)  # Slug generates from title (in to_internal_value)
+    published_date = TimestampField(auto_now_add=True, required=False)
+    updated = TimestampField(auto_now=True, required=False)
+    visible = serializers.BooleanField(default=True)
+    category = CategorySerializer(required=False)
+    categories = CategorySerializer(many=True, required=False)  # just for test
+    comments = CommentSerializer(many=True, required=False)  # list auto handles by 'MongoListSerializer'
+
+    class Meta:
+        model = mongo_db.file
+        # list_serializer_class = BlogListMongoSerializer  # handles list for customize purpose
+
+    def to_internal_value(self, data):
+        request, change = self.context.get('request'), self.context.get('change', False)
+
+        if not data.get('slug') and data.get('title'):
+            data['slug'] = slugify(data['title'], allow_unicode=True)  # data==request.data==self.initial_data mutable
+
+        return super().to_internal_value(data)
+
+
+
+
+1- (django_update)
+data = {'title': uuid.uuid4().hex[:2], 'author': 1}
+s = FileMongoSerializer(_id='675473e514ce3d3ec13260de', data=data, request=request, partial=True)
+
+2- (django_update)
+data = {'title': uuid.uuid4().hex[:2], 'author': 1}
+s = FileMongoSerializer(_id=['675473e514ce3d3ec13260de'], data=[data], request=request, many=True, partial=True)
+
+
+# 3- (mongo_update_dict)
+data = {'title': 'blogggg', 'specs': {'وضعیت واحد': 'بازسازی شده'}}
+s = FileMongoSerializer(_id='67551fc03b3e5f0c1a3e0964', data=data, request=request, partial=True)
+
+# 4- (mongo_update_list (push))
+data = {"title": 'Blog1', 'comments': [{'content': 'comment 1'}]}
+s = FileMongoSerializer(_id=..., data=data, request=request, partial=True)
+
+
+# 5- (mongo_update_list)
+data = {"title": 'Blog1', 'comments': [{'_id': '..', 'content': 'cm 1'}]}
+s = FileMongoSerializer(_id='675473e514ce3d3ec13260de', data=data, request=request, partial=True)
+
+
+# 6- (mongo_update_list)
+data = {"title": 'Blog1', 'comments': [{'_id': '..', 'content': 'cm 1'}]}
+s = FileMongoSerializer(_id=['675473e514ce3d3ec13260de'], data=[data], many=True, request=request, partial=True)
+
+
+# 7- (complex)
+data_update1 = {"title": 'Blog11',
+                'comments': [{'_id': '675473e514ce3d3ec13260e7', 'email': 'bb@gmail.com', 'content': 'test12'},
+                             {'_id': '67593e8c028aff5a773a913b', 'email': 'aa@gmail.com', 'content': 'test11'}]}
+data_update2 = {'title': uuid.uuid4().hex[:2], 'images': [{'_id': '675924242eef2317c9f010ba', 'alt': '777'}]}
+s = FileMongoSerializer(_id=['675473e514ce3d3ec13260de', '675924232eef2317c9f010b9'], data=[data_update1, data_update2], many=True, request=request, partial=True)

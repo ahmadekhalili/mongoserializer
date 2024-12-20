@@ -25,7 +25,7 @@ class TimestampField(serializers.Field):
             return value
 
     def get_value(self, dictionary):
-        update_phase = getattr(self.parent, 'pk', False) or getattr(self.parent, 'instance', False)
+        update_phase = getattr(self.parent, '_id', False) or getattr(self.parent, 'instance', False)
         # in creation, both of fields with auto_now or auto_now_add have to add.
         if (self.auto_now_add or self.auto_now) and not update_phase:
             return True
@@ -74,7 +74,7 @@ class DateTimeFieldMongo(serializers.DateTimeField):
             else:
                 datetime.datetime.now()
 
-        update_phase = getattr(self.parent, 'pk', False) or getattr(self.parent, 'instance', False)
+        update_phase = getattr(self.parent, '_id', False) or getattr(self.parent, 'instance', False)
         if self.auto_now_add and not update_phase:
             return get_datetime()
         elif self.auto_now and update_phase:
@@ -87,9 +87,29 @@ class DateTimeFieldMongo(serializers.DateTimeField):
 
 
 class IdMongoField(serializers.Field):
+    def __init__(self, mongo_write=False, *args, **kwargs):
+        # 'mongo_write' specify is serializer only for mongo (db) write?
+        super().__init__(*args, **kwargs)
+        self.mongo_write = mongo_write
+
     def to_representation(self, value):
+        if self.mongo_write:
+            return value         # value type is ObjectId ready to save in MongoDB
         return str(value)
 
+    def get_value(self, dictionary):
+        update_phase = getattr(self.parent, '_id', False) or getattr(self.parent, 'instance', False)
+        if not update_phase:
+            return True
+        else:
+            return super().get_value(dictionary)
+
     def to_internal_value(self, data):
-        if type(data) == str:
+        update_phase = getattr(self.parent, '_id', False) or getattr(self.parent, 'root_id', False) or getattr(self.parent, 'instance', False)
+        update_add_phase = getattr(self.parent, 'root_id', False) and not getattr(self.parent, '_id', False)
+        if not bool(update_phase):
+            return ObjectId()
+        if update_add_phase:  # add(push) a document to a serializer field in update phase
+            return ObjectId()
+        if type(data) == str:  # 'data' could be True/False returned from get_value
             return ObjectId(data)

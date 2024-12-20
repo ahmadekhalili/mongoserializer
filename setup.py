@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='mongoserializer',
-    version='0.9.4',
+    version='1.0.0',
     packages=['mongoserializer'],
     install_requires=["django", "djangorestframework", "pymongo"],
     extras_require={
