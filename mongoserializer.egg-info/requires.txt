@@ -1,6 +1,0 @@
-django
-djangorestframework
-pymongo
-
-[jalali]
-jdatetime

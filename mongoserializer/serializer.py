@@ -1,3 +1,4 @@
+import rest_framework.fields
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
 
@@ -202,6 +203,29 @@ class MongoSerializer(FieldMixin, serializers.Serializer):
             ret = self._field_filtering_for_update(instance, ret)
         return ret
 
+    def validate_empty_values_django(self, data):
+        """
+        almost same with 'validate_empty_values' but limit validations for django fields (skip fields when do data
+        provided and prevent from error
+        """
+        if self.read_only:
+            return (True, self.get_default())
+
+        if data is empty:
+            raise SkipField()
+
+        if data is None:
+            if not self.allow_null:
+                self.fail('null')
+            # Nullable `source='*'` fields should not be skipped when its named
+            # field is given a null value. This is because `source='*'` means
+            # the field is passed the entire object, which is not null.
+            elif self.source == '*':
+                return (False, None)
+            return (True, None)
+
+        return (False, data)
+
     def _super_internal_value(self, data):
         # ListSerializer calls: child.run_validation -> child.to_internal_value
         ret = OrderedDict()
@@ -214,9 +238,9 @@ class MongoSerializer(FieldMixin, serializers.Serializer):
             try:
                 if isinstance(field, serializers.BaseSerializer) and not getattr(field, 'mongo', False):
                     # for django fields don't validate (raise error)
-                    (is_empty_value, data) = self.validate_empty_values(primitive_value)
+                    (is_empty_value, data) = self.validate_empty_values_django(primitive_value)
                     if is_empty_value:
-                        return data    # just like default DRF implementation, otherwise could raise error
+                        validated_value = data    # just like default DRF implementation, otherwise could raise error
                     validated_value = field.to_internal_value(primitive_value)
                 else:
                     validated_value = field.run_validation(primitive_value)
@@ -251,7 +275,6 @@ class MongoSerializer(FieldMixin, serializers.Serializer):
                             field.query = field.child.query = ['', 'add_array']  # add dict to the nested array db field
                         elif not value[0].get('_id'):
                             # we have to distinguish _id added via IdMongo and _id put by user
-                            # django fields only have add_array/add_dict in update phase
                             field.query[1] = field.child.query[1] = 'add_array'  # add dict to the nested array db field
                         else:   # value[0].get('_id')
                             field.query[1] = field.child.query[1] = 'edit'
@@ -266,6 +289,7 @@ class MongoSerializer(FieldMixin, serializers.Serializer):
                         else:  # value.get('_id'):
                             field.query[1] = 'edit'
                             field._id = value.get('_id')
+        #return super().to_internal_value(data=data)
         return self._super_internal_value(data)   # super() could override field attributes
 
     def save(self, **kwargs):
