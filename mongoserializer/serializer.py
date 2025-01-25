@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 from rest_framework.fields import empty
 from rest_framework.exceptions import ValidationError
-from rest_framework.fields import get_error_detail, set_value, SkipField
+from rest_framework.fields import get_error_detail, SkipField
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -254,7 +254,11 @@ class MongoSerializer(FieldMixin, serializers.Serializer):
             except SkipField:
                 pass
             else:
-                set_value(ret, field.source_attrs, validated_value)
+                # Directly assign the value in the OrderedDict
+                nested_dict = ret
+                for attr in field.source_attrs[:-1]:
+                    nested_dict = nested_dict.setdefault(attr, OrderedDict())
+                nested_dict[field.source_attrs[-1]] = validated_value
         if errors:
             raise ValidationError(errors)
         return ret
